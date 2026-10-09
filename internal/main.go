@@ -1,35 +1,20 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"kogatari/internal/handlers"
-	"net/http"
-	"os"
-
-	"github.com/joho/godotenv"
+	"log/slog"
 )
 
 func main() {
-	err := godotenv.Load()
+	srv, dbConn := handlers.CreateServer()
+
+	defer dbConn.Close(context.Background())
+
+	slog.Info("started server")
+	err := srv.ListenAndServe()
 	if err != nil {
-		fmt.Println("an error has occured when accessing env variables", err)
-	}
-
-	srvPort := os.Getenv("PORT")
-
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/api/v1/test", handlers.RootHandler)
-	mux.HandleFunc("/api/v1/healthz", handlers.HealthHandler)
-
-	srv := &http.Server{
-		Addr:    ":" + srvPort,
-		Handler: mux,
-	}
-
-	fmt.Println("Server running on port:", srvPort)
-	err = srv.ListenAndServe()
-	if err != nil {
-		fmt.Println("an error has occured when running server", err)
+		slog.Error("an error has occured when running server",
+			slog.String("err", err.Error()))
 	}
 }
