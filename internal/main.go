@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	err := godotenv.Load("../.env")
+	err := godotenv.Load()
 	if err != nil {
 		fmt.Println("an error has occured when accessing env variables", err)
 	}
@@ -20,6 +20,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/api/v1/test", handlers.RootHandler)
+	mux.HandleFunc("/api/v1/healthz", handlers.HealthHandler)
 
 	srv := &http.Server{
 		Addr:    ":" + srvPort,
