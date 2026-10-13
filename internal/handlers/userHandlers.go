@@ -2,9 +2,12 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"kogatari/internal/internal"
 	"log/slog"
 	"net/http"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func (app application) CreateUserHander(w http.ResponseWriter, r *http.Request) {
@@ -24,13 +27,27 @@ func (app application) CreateUserHander(w http.ResponseWriter, r *http.Request) 
 	}
 
 	usr, err := app.DB.CreateUser(r.Context(), params.Email)
+
 	if err != nil {
+		var pgErr *pgconn.PgError
+		var msg string
+		var status int
+		var userExists bool
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			msg = "user with this email already exist"
+			status = http.StatusConflict
+			userExists = true
+		} else {
+			msg = "user with this email already exist"
+			status = http.StatusInternalServerError
+		}
 		app.Slogger.ErrorContext(r.Context(),
 			"error with creating user has occured",
 			slog.String("err", err.Error()),
+			slog.Bool("user exists in DB", userExists),
 			slog.String("email", params.Email))
 
-		internal.RespondWithError(w, r, http.StatusInternalServerError, "internal error")
+		internal.RespondWithError(w, r, status, msg)
 		return
 	}
 
