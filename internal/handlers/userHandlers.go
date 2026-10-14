@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"kogatari/internal/auth"
@@ -8,6 +9,7 @@ import (
 	"kogatari/internal/httputil"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -17,7 +19,7 @@ func (app application) CreateUserHander(w http.ResponseWriter, r *http.Request) 
 	var params database.CreateUserParams
 	var err error
 
-	if err := decoder.Decode(&params); err != nil {
+	if err = decoder.Decode(&params); err != nil {
 		app.Slogger.ErrorContext(r.Context(),
 			"error with request body has occured",
 			slog.String("err", err.Error()))
@@ -68,4 +70,56 @@ func (app application) CreateUserHander(w http.ResponseWriter, r *http.Request) 
 	}
 
 	httputil.RespondWithJSON(w, r, http.StatusCreated, usr)
+}
+
+func (app application) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	var params struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	var err error
+	if err = decoder.Decode(&params); err != nil {
+		app.Slogger.ErrorContext(r.Context(),
+			"error with request body has occured",
+			slog.String("err", err.Error()))
+
+		httputil.RespondWithError(w, r, http.StatusBadRequest, "bad body request")
+		return
+	}
+
+	params.Email = strings.ToLower(params.Email)
+
+	hash, err := app.DB.GetUserByEmail(r.Context(), params.Email)
+	if err != nil {
+		msg := "couldnt retrieve user data"
+		status := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			msg = "no user with this email"
+			status = http.StatusUnauthorized
+		}
+		app.Slogger.ErrorContext(r.Context(),
+			"error with logging in user has occured",
+			slog.String("err", err.Error()),
+			slog.String("email", params.Email))
+		httputil.RespondWithError(w, r, status, msg)
+		return
+	}
+
+	if passwordMatch, err := auth.CheckPasswordHash(params.Password, hash); err != nil {
+		app.Slogger.ErrorContext(r.Context(),
+			"an error occured when checking hashed password",
+			slog.String("err", err.Error()),
+			slog.String("user email", params.Email))
+		httputil.RespondWithError(w, r, http.StatusInternalServerError, "password hash check error")
+		return
+	} else if !passwordMatch {
+		app.Slogger.ErrorContext(r.Context(),
+			"failed log in attempt",
+			slog.String("user email", params.Email))
+		httputil.RespondWithError(w, r, http.StatusUnauthorized, "passwords don't match")
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
