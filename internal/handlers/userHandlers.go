@@ -3,9 +3,9 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"kogatari/internal/go_sql"
-	"kogatari/internal/internal"
-	"kogatari/internal/internal/auth"
+	"kogatari/internal/auth"
+	"kogatari/internal/database"
+	"kogatari/internal/httputil"
 	"log/slog"
 	"net/http"
 
@@ -14,7 +14,7 @@ import (
 
 func (app application) CreateUserHander(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
-	var params go_sql.CreateUserParams
+	var params database.CreateUserParams
 	var err error
 
 	if err := decoder.Decode(&params); err != nil {
@@ -22,7 +22,7 @@ func (app application) CreateUserHander(w http.ResponseWriter, r *http.Request) 
 			"error with request body has occured",
 			slog.String("err", err.Error()))
 
-		internal.RespondWithError(w, r, http.StatusBadRequest, "bad body request")
+		httputil.RespondWithError(w, r, http.StatusBadRequest, "bad body request")
 		return
 	}
 
@@ -30,7 +30,7 @@ func (app application) CreateUserHander(w http.ResponseWriter, r *http.Request) 
 		app.Slogger.InfoContext(r.Context(),
 			"password too short",
 			slog.Int("length", passLength))
-		internal.RespondWithError(w, r, http.StatusBadRequest, "password too short, length less than 8")
+		httputil.RespondWithError(w, r, http.StatusBadRequest, "password too short, length less than 8")
 		return
 	}
 
@@ -39,7 +39,7 @@ func (app application) CreateUserHander(w http.ResponseWriter, r *http.Request) 
 			"an error occured when hashind the password",
 			slog.String("err", err.Error()),
 			slog.String("user email", params.Email))
-		internal.RespondWithError(w, r, http.StatusInternalServerError, "password hashing error")
+		httputil.RespondWithError(w, r, http.StatusInternalServerError, "password hashing error")
 		return
 	}
 
@@ -63,9 +63,9 @@ func (app application) CreateUserHander(w http.ResponseWriter, r *http.Request) 
 			slog.Bool("user exists in DB", userExists),
 			slog.String("email", params.Email))
 
-		internal.RespondWithError(w, r, status, msg)
+		httputil.RespondWithError(w, r, status, msg)
 		return
 	}
 
-	internal.RespondWithJSON(w, r, http.StatusCreated, usr)
+	httputil.RespondWithJSON(w, r, http.StatusCreated, usr)
 }

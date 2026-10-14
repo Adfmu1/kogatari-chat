@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"context"
-	"kogatari/internal/go_sql"
+	"kogatari/internal/database"
 	"log/slog"
 	"net/http"
 	"os"
@@ -12,7 +12,7 @@ import (
 )
 
 type application struct {
-	DB      *go_sql.Queries
+	DB      *database.Queries
 	Slogger *slog.Logger
 }
 
@@ -38,7 +38,7 @@ func CreateServer() (*http.Server, *pgx.Conn) {
 		return nil, nil
 	}
 
-	app.DB = go_sql.New(dbConn)
+	app.DB = database.New(dbConn)
 	app.Slogger.Info("connected to db")
 
 	mux := http.NewServeMux()
