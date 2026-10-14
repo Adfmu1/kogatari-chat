@@ -43,8 +43,7 @@ func CreateServer() (*http.Server, *pgx.Conn) {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/api/v1/register", app.CreateUserHander)
-	mux.HandleFunc("/api/v1/healthz", HealthHandler)
+	registerRoutes(mux)
 
 	srv := &http.Server{
 		Addr:    ":" + srvPort,
