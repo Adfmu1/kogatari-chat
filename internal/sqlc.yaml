@@ -6,5 +6,6 @@ sql:
     gen:
       go:
         package: "go_sql"
-        out: "internal/go_sql"
+        out: "./go_sql"
         sql_package: "pgx/v5"
+        emit_json_tags: true

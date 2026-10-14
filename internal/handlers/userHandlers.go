@@ -3,7 +3,9 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"kogatari/internal/go_sql"
 	"kogatari/internal/internal"
+	"kogatari/internal/internal/auth"
 	"log/slog"
 	"net/http"
 
@@ -12,12 +14,10 @@ import (
 
 func (app application) CreateUserHander(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
-	params := struct {
-		Email string `json:"email"`
-	}{}
+	var params go_sql.CreateUserParams
+	var err error
 
-	err := decoder.Decode(&params)
-	if err != nil {
+	if err := decoder.Decode(&params); err != nil {
 		app.Slogger.ErrorContext(r.Context(),
 			"error with request body has occured",
 			slog.String("err", err.Error()))
@@ -26,8 +26,24 @@ func (app application) CreateUserHander(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	usr, err := app.DB.CreateUser(r.Context(), params.Email)
+	if passLength := len(params.HashedPassword); passLength < 8 {
+		app.Slogger.InfoContext(r.Context(),
+			"password too short",
+			slog.Int("length", passLength))
+		internal.RespondWithError(w, r, http.StatusBadRequest, "password too short, length less than 8")
+		return
+	}
 
+	if params.HashedPassword, err = auth.HashPassword(params.HashedPassword); err != nil {
+		app.Slogger.ErrorContext(r.Context(),
+			"an error occured when hashind the password",
+			slog.String("err", err.Error()),
+			slog.String("user email", params.Email))
+		internal.RespondWithError(w, r, http.StatusInternalServerError, "password hashing error")
+		return
+	}
+
+	usr, err := app.DB.CreateUser(r.Context(), params)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		var msg string
