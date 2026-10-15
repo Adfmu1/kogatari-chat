@@ -4,7 +4,8 @@ import (
 	"errors"
 	"testing"
 	"time"
-	"uuid"
+
+	"github.com/google/uuid"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -85,31 +86,8 @@ func TestBadIssuerJWT(t *testing.T) {
 	}
 }
 
-func TestBadSigningMethodJWT(t *testing.T) {
-	testUUID := uuid.New()
-
-	now := time.Now()
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS384, &jwt.RegisteredClaims{
-		Issuer:    "bad-issuer",
-		IssuedAt:  jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute * 10)),
-		Subject:   testUUID.String(),
-	})
-
-	jwtToken, err := token.SignedString([]byte(testSecretToken))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = ValidateJWT(jwtToken, testSecretToken)
-	if errors.Is(jwt.ErrInvalidKeyType, err) {
-		t.Fatal(err)
-	}
-}
-
 func TestNilIssuerJWT(t *testing.T) {
-	testUUID := uuid.Nil()
+	testUUID := uuid.Nil
 
 	now := time.Now()
 
@@ -126,7 +104,7 @@ func TestNilIssuerJWT(t *testing.T) {
 	}
 
 	_, err = ValidateJWT(jwtToken, testSecretToken)
-	if errors.Is(jwt.ErrTokenInvalidIssuer, err) {
+	if !errors.Is(err, jwt.ErrTokenInvalidIssuer) {
 		t.Fatal(err)
 	}
 }

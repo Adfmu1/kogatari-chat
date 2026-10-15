@@ -5,7 +5,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"uuid"
+
+	"github.com/google/uuid"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -35,17 +36,17 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 		jwt.WithExpirationRequired(),
 	)
 	if err != nil {
-		return uuid.Nil(), err
+		return uuid.Nil, err
 	}
 
 	claims, ok := token.Claims.(*jwt.RegisteredClaims)
 	if !ok || !token.Valid {
-		return uuid.Nil(), errors.New("invalid token")
+		return uuid.Nil, errors.New("invalid token")
 	}
 
 	id, err := uuid.Parse(claims.Subject)
 	if err != nil {
-		return uuid.Nil(), errors.New("invalid token subject")
+		return uuid.Nil, errors.New("invalid token subject")
 	}
 
 	return id, nil
