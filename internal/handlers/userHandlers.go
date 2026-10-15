@@ -7,7 +7,6 @@ import (
 	"kogatari/internal/httputil"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 	"uuid"
@@ -52,9 +51,8 @@ func (app application) CreateUserHandler(w http.ResponseWriter, r *http.Request)
 func (app application) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	var params struct {
-		Email            string `json:"email"`
-		HashedPassword   string `json:"hashed_password"`
-		ExpiresInSeconds string `json:"expires_in_seconds"`
+		Email          string `json:"email"`
+		HashedPassword string `json:"hashed_password"`
 	}
 	var err error
 	if err = decoder.Decode(&params); err != nil ||
@@ -82,26 +80,30 @@ func (app application) LoginUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	expiryTime := time.Hour * 1
-	if params.ExpiresInSeconds != "" {
-		multiplier, err := strconv.Atoi(params.ExpiresInSeconds)
-		if err != nil {
-			httputil.RespondWithError(w, r, http.StatusInternalServerError, "internal error")
-		}
-		expiryTime = time.Second * time.Duration(multiplier)
-	}
-	token, err := auth.GenerateJWT(usr.ID, app.JWTKey, expiryTime)
+	token, err := auth.GenerateJWT(usr.ID, app.JWTKey, time.Hour*1)
 	if err != nil {
-		httputil.RespondWithError(w, r, http.StatusInternalServerError, "internal error")
+		httputil.RespondWithError(w, r, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	refreshToken, err := app.DB.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token:  auth.MakeRefreshToken(),
+		UserID: usr.ID,
+	})
+	if err != nil {
+		httputil.RespondWithError(w, r, http.StatusInternalServerError, "internal server error")
+		return
 	}
 
 	httputil.RespondWithJSON(w, r, http.StatusOK, struct {
-		Email string    `json:"email"`
-		UUID  uuid.UUID `json:"uuid"`
-		Token string    `json:"token"`
+		Email        string    `json:"email"`
+		UUID         uuid.UUID `json:"uuid"`
+		AuthToken    string    `json:"authTtoken"`
+		RefreshToken string    `json:"refreshToken"`
 	}{
-		Email: usr.Email,
-		UUID:  uuid.UUID(usr.ID),
-		Token: token,
+		Email:        usr.Email,
+		UUID:         uuid.UUID(usr.ID),
+		AuthToken:    token,
+		RefreshToken: refreshToken.Token,
 	})
 }
