@@ -7,7 +7,10 @@ import (
 	"kogatari/internal/httputil"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
+	"uuid"
 )
 
 func (app application) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -49,8 +52,9 @@ func (app application) CreateUserHandler(w http.ResponseWriter, r *http.Request)
 func (app application) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	var params struct {
-		Email          string `json:"email"`
-		HashedPassword string `json:"hashed_password"`
+		Email            string `json:"email"`
+		HashedPassword   string `json:"hashed_password"`
+		ExpiresInSeconds string `json:"expires_in_seconds"`
 	}
 	var err error
 	if err = decoder.Decode(&params); err != nil ||
@@ -61,20 +65,13 @@ func (app application) LoginUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	params.Email = strings.ToLower(params.Email)
 
-	var hash string
-	if hash, err = app.DB.GetUserByEmail(r.Context(), params.Email); err != nil {
-		app.Slogger.ErrorContext(r.Context(),
-			"error with logging in user has occured",
-			slog.String("err", err.Error()),
-			slog.String("email", params.Email))
+	usr, err := app.DB.GetUserByEmail(r.Context(), params.Email)
+	if err != nil {
 		httputil.RespondWithError(w, r, http.StatusInternalServerError, "couldnt retrieve user data")
 		return
 	}
 
-	if passwordMatch, err := auth.CheckPasswordHash(params.HashedPassword, hash); err != nil {
-		app.Slogger.ErrorContext(r.Context(),
-			"an error occured when checking hashed password",
-			slog.String("err", err.Error()))
+	if passwordMatch, err := auth.CheckPasswordHash(params.HashedPassword, usr.HashedPassword); err != nil {
 		httputil.RespondWithError(w, r, http.StatusInternalServerError, "password hash check error")
 		return
 	} else if !passwordMatch {
@@ -85,5 +82,26 @@ func (app application) LoginUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	expiryTime := time.Hour * 1
+	if params.ExpiresInSeconds != "" {
+		multiplier, err := strconv.Atoi(params.ExpiresInSeconds)
+		if err != nil {
+			httputil.RespondWithError(w, r, http.StatusInternalServerError, "internal error")
+		}
+		expiryTime = time.Second * time.Duration(multiplier)
+	}
+	token, err := auth.GenerateJWT(usr.ID, app.JWTKey, expiryTime)
+	if err != nil {
+		httputil.RespondWithError(w, r, http.StatusInternalServerError, "internal error")
+	}
+
+	httputil.RespondWithJSON(w, r, http.StatusOK, struct {
+		Email string    `json:"email"`
+		UUID  uuid.UUID `json:"uuid"`
+		Token string    `json:"token"`
+	}{
+		Email: usr.Email,
+		UUID:  uuid.UUID(usr.ID),
+		Token: token,
+	})
 }

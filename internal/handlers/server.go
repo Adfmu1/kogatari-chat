@@ -14,6 +14,7 @@ import (
 type application struct {
 	DB      *database.Queries
 	Slogger *slog.Logger
+	JWTKey  string
 }
 
 var app application
@@ -40,6 +41,7 @@ func CreateServer() (*http.Server, *pgx.Conn) {
 
 	app.DB = database.New(dbConn)
 	app.Slogger.Info("connected to db")
+	app.JWTKey = os.Getenv("JWT_KEY")
 
 	mux := http.NewServeMux()
 
