@@ -2,6 +2,8 @@ package auth
 
 import (
 	"errors"
+	"net/http"
+	"strings"
 	"time"
 	"uuid"
 
@@ -47,4 +49,14 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	}
 
 	return id, nil
+}
+
+func GetBearerToken(headers http.Header) (string, error) {
+	partsHeader := strings.Fields(headers.Get("Authorization"))
+
+	if len(partsHeader) != 2 || partsHeader[0] != "Bearer" {
+		return "", errors.New("malformed authorization header")
+	}
+
+	return partsHeader[1], nil
 }
