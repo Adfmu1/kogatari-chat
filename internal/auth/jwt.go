@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"kogatari/internal/database"
 	"net/http"
 	"strings"
 	"time"
@@ -60,4 +61,13 @@ func GetBearerToken(headers http.Header) (string, error) {
 	}
 
 	return partsHeader[1], nil
+}
+
+func ValidateRefreshToken(refreshToken database.RefreshToken) (bool, error) {
+	if refreshToken.RevokedAt.Valid {
+		return false, errors.New("refresh token has been revoked")
+	} else if expiryTime := refreshToken.ExpiresAt.Time; time.Now().After(expiryTime) {
+		return false, errors.New("refresh token has expired")
+	}
+	return true, nil
 }
