@@ -9,5 +9,6 @@ func registerRoutes(mux *http.ServeMux) {
 	// GET
 	mux.HandleFunc("GET /api/v1/login", app.LoginUserHandler)
 	mux.HandleFunc("GET /api/v1/refresh", app.RefreshJWTHandler)
+	mux.HandleFunc("GET /api/v1/revoke", app.RevokeRefreshTokenHandler)
 	mux.HandleFunc("GET /healthz", HealthHandler)
 }

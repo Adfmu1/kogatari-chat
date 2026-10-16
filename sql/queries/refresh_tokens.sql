@@ -11,10 +11,8 @@ SELECT *
 FROM refresh_tokens
 WHERE token = $1;
 
--- name: UpdateRefreshToken :exec
+-- name: RevokeRefreshToken :exec
 UPDATE refresh_tokens
 SET
-    token = $2,
-    updated_at = NOW(),
-    expires_at = NOW() + INTERVAL '60 days'
+    revoked_at = NOW()
 WHERE token = $1;
